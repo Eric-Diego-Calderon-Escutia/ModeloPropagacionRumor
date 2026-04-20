@@ -23,6 +23,12 @@ color colorNoChismoso = color(241, 196, 15);    // Amarillo: Inmune/recuperado, 
 
 // Configuración inicial (Se ejecuta una sola vez al iniciar)
 
+int generaciones = 0;
+
+int[] generacionesPorDecena; // guarda en qué generación se alcanzó 10, 20, 30... enterados
+
+
+
 void setup() {
   size(800, 800); // Tamaño de la ventana de simulación
   
@@ -32,7 +38,7 @@ void setup() {
   
   // Inicializamos la matriz con las dimensiones calculadas
   poblacion = new int[columnas][filas];
-  
+  generacionesPorDecena = new int[11];  
   // Llamamos a la función que pone a todos en estado 0 (Verde/Ignorante)
   reiniciarPoblacion(); 
 }
@@ -67,11 +73,39 @@ void draw() {
   if (simulando && frameCount % 5 == 0) {
     aplicarReglasDelRumor(); 
   }
+  int totalIgnorantes = contarEstado(0);
+  int totalChismosos = contarEstado(1);
+  int totalNoChismosos = contarEstado(2);
+  int totalEnterados = totalChismosos + totalNoChismosos;
+
+  float porcentajeIgnorantes = calcularPorcentaje(totalIgnorantes);
+  float porcentajeChismosos = calcularPorcentaje(totalChismosos);
+  float porcentajeNoChismosos = calcularPorcentaje(totalNoChismosos);
+  float porcentajeEnterados = calcularPorcentaje(totalEnterados);
+
+  registrarDecenasEnterados(porcentajeEnterados);
+  int ultimaDecenaAlcanzada = obtenerUltimaDecenaAlcanzada(porcentajeEnterados);
   
   // Dibujar interfaz de usuario (Textos informativos)
   fill(255);
   textSize(16);
-  text("Estado: " + (simulando ? "Simulando..." : "PAUSADO (ESPACIO para iniciar, 'R' para resetear)"), 15, 25);
+
+  fill(0, 160);
+rect(10, 5, 430, 185);
+fill(255);
+  text("Generaciones: " + generaciones, 15, 25);
+  text("Ignorantes: " + totalIgnorantes + " (" + nf(porcentajeIgnorantes, 0, 2) + "%)", 15, 50);
+  text("Chismosos: " + totalChismosos + " (" + nf(porcentajeChismosos, 0, 2) + "%)", 15, 75);
+  text("No chismosos: " + totalNoChismosos + " (" + nf(porcentajeNoChismosos, 0, 2) + "%)", 15, 100);
+  text("Enterados: " + totalEnterados + " (" + nf(porcentajeEnterados, 0, 2) + "%)", 15, 125);
+
+  if (ultimaDecenaAlcanzada >= 10) {
+    text("Generaciones para llegar a " + ultimaDecenaAlcanzada + "% enterados: " 
+     + generacionesPorDecena[ultimaDecenaAlcanzada / 10], 15, 150);
+  } else {
+    text("Generaciones para llegar a X0% enterados: aun no se alcanza 10%", 15, 150);  }
+
+text("Estado: " + (simulando ? "Corriendo..." : "PAUSADO (ESPACIO para iniciar, 'R' para resetear)"), 15, 175);
 }
 
 // Interacción con el teclado y mouse
@@ -88,7 +122,13 @@ void keyPressed() {
 
 // Devuelve a toda la matriz al estado inicial (0) y pausa la simulación
 void reiniciarPoblacion() {
-  simulando = false; 
+  simulando = false;
+  generaciones = 0;
+
+  for (int k = 0; k < generacionesPorDecena.length; k++) {
+    generacionesPorDecena[k] = -1;
+  }
+
   for (int i = 0; i < columnas; i++) {
     for (int j = 0; j < filas; j++) {
       poblacion[i][j] = 0;
@@ -176,6 +216,7 @@ void aplicarReglasDelRumor() {
   
   // Finalmente, reemplazamos la matriz antigua con la nueva matriz calculada
   poblacion = nuevaPoblacion;
+  generaciones++;
 }
 
 boolean barrier(int col, int row) {
@@ -232,3 +273,42 @@ void dibujarPersona(float x, float y, float tamano, color c) {
   // Dibujamos los hombros/cuerpo (Un arco en la parte inferior apuntando hacia arriba)
   arc(centroX, centroY + tamano*0.3, anchoCuerpo, altoCuerpo, PI, TWO_PI);
 }
+
+int contarEstado(int estadoBuscado) {
+  int total = 0;
+
+  for (int i = 0; i < columnas; i++) {
+    for (int j = 0; j < filas; j++) {
+      if (poblacion[i][j] == estadoBuscado) {
+        total++;
+      }
+    }
+  }
+
+  return total;
+}
+
+float calcularPorcentaje(int cantidad) {
+  int totalCeldas = columnas * filas;
+
+  if (totalCeldas == 0) {
+    return 0;
+  }
+
+  return (float)cantidad * 100.0 / totalCeldas;
+}
+
+void registrarDecenasEnterados(float porcentajeEnterados) {
+  for (int decena = 10; decena <= floor(porcentajeEnterados); decena += 10) {
+    int indice = decena / 10;
+
+    if (indice < generacionesPorDecena.length && generacionesPorDecena[indice] == -1) {
+      generacionesPorDecena[indice] = generaciones;
+    }
+  }
+}
+
+int obtenerUltimaDecenaAlcanzada(float porcentajeEnterados) {
+  return (floor(porcentajeEnterados) / 10) * 10;
+}
+
